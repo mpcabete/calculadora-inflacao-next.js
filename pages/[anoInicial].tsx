@@ -4,7 +4,8 @@ import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import styles from '../styles/Home.module.css'
 import { Welcome } from '../types/types'
-import MoneyInput from "@rschpdr/react-money-input";
+import MoneyInput from '@rschpdr/react-money-input'
+import axios from 'axios'
 
 const MESES = [
   'Janeiro',
@@ -21,37 +22,42 @@ const MESES = [
   'Dezembro',
 ]
 
-const Home: NextPage = () => {
-  const [ipcas, setIpcas] = useState([] as Welcome[])
+const fetchData = async () => {
+  const response = await fetch(
+  'http://localhost:3000/api/ipca'
+    //'https://apisidra.ibge.gov.br/values/t/1737/n1/all/v/63/p/all/d/v63%202'
+  ) 
+  //const ipcas = data as Welcome[]
+  const ipcas = (await response.json()) as Welcome[]
+  ipcas.shift()
+  return ipcas
+}
+
+const Home: NextPage = (props:any) => {
+  const {anoInicial, ipcasPreload} = props
+  console.log('ipcasPreload',ipcasPreload)
+  const [ipcas, setIpcas] = useState(ipcasPreload as Welcome[])
   const [valorInicial, setValorInicial] = useState(1000)
   const [inicioMes, setInicioMes] = useState('01')
-  const [inicioAno, setInicioAno] = useState('2008')
+  const [inicioAno, setInicioAno] = useState(anoInicial)
   const [fimMes, setFimMes] = useState('03')
   const [fimAno, setFimAno] = useState('2022')
-  const fetchData = async () => {
-    const response = await fetch(
-      'https://apisidra.ibge.gov.br/values/t/1737/n1/all/v/63/p/all/d/v63%202'
-    )
-    const ipcas = (await response.json()) as Welcome[]
-    console.log(ipcas[1].V)
-    ipcas.shift()
+  const loadData = async () => {
+    const ipcas = await fetchData()
     setIpcas(ipcas)
   }
   useEffect(() => {
-    fetchData()
+    loadData()
   }, [])
 
   const inicio = ipcas.findIndex((ipca) => ipca.D3C == inicioAno + inicioMes)
-  console.log('inicio', inicio)
   const fim = ipcas.findIndex((ipca) => ipca.D3C == fimAno + fimMes)
-  console.log('fim', fim)
   let ipcasSelecionados
   if (inicio <= fim) {
     ipcasSelecionados = ipcas.slice(inicio, fim + 1)
   } else {
     ipcasSelecionados = ipcas.slice(fim, inicio + 1)
   }
-  console.log('ipcasSelecionados', ipcasSelecionados)
   const acumulado = ipcasSelecionados
     .map((ipca) => {
       if (inicio <= fim) {
@@ -76,10 +82,14 @@ const Home: NextPage = () => {
       {ano}
     </option>
   ))
-  
-    const mesesInicioDisponiveis = ipcas.filter(ipca=>ipca.D3C.includes(inicioAno)).length
 
-    const mesesFimDisponiveis = ipcas.filter(ipca=>ipca.D3C.includes(fimAno)).length
+  const mesesInicioDisponiveis = ipcas.filter((ipca) =>
+    ipca.D3C.includes(inicioAno)
+  ).length
+
+  const mesesFimDisponiveis = ipcas.filter((ipca) =>
+    ipca.D3C.includes(fimAno)
+  ).length
 
   const mesesOptions = MESES.map((mes, i) => (
     <option key={i} value={(i + 1).toString().padStart(2, '0')}>
@@ -98,18 +108,18 @@ const Home: NextPage = () => {
 
         <div className={styles.grid}>
           <div className={styles.card}>
-            <h2
-            >
+            <h2>
               Valor em{' '}
               <select
                 value={inicioMes}
                 onChange={(e) => setInicioMes(e.target.value.toString())}
               >
-                {mesesOptions.slice(0,mesesInicioDisponiveis)}
+                {mesesOptions.slice(0, mesesInicioDisponiveis)}
               </select>
               de{' '}
+              
               <select
-                value={inicioAno}
+                value={anoInicial}
                 onChange={(e) => setInicioAno(e.target.value.toString())}
               >
                 {anosOptions}
@@ -119,7 +129,7 @@ const Home: NextPage = () => {
             <p>
               <MoneyInput
                 value={valorInicial}
-                onChange={(e:any) => setValorInicial(Number(e.target.value))}
+                onChange={(e: any) => setValorInicial(Number(e.target.value))}
                 type='number'
               ></MoneyInput>{' '}
             </p>
@@ -127,12 +137,12 @@ const Home: NextPage = () => {
 
           <div className={styles.card}>
             <h2>
-              Valor em {' '}
+              Valor em{' '}
               <select
                 value={fimMes}
                 onChange={(e) => setFimMes(e.target.value.toString())}
               >
-                {mesesOptions.slice(0,mesesFimDisponiveis)}
+                {mesesOptions.slice(0, mesesFimDisponiveis)}
               </select>
               de{' '}
               <select
@@ -147,6 +157,7 @@ const Home: NextPage = () => {
             <p> {(valorInicial * acumulado).toFixed(2)} </p>
           </div>
         </div>
+        <div>{10} reais em {inicioAno} equivalem a {(valorInicial * acumulado).toFixed(2)} reais Hoje</div>
       </main>
 
       <footer className={styles.footer}>
@@ -163,6 +174,26 @@ const Home: NextPage = () => {
       </footer>
     </div>
   )
+}
+export const getStaticProps = async (context: any) => {
+  const ipcasPreload = await fetchData()
+  return { props: { anoInicial: context.params.anoInicial, ipcasPreload } }
+}
+
+export const getStaticPaths = async () => {
+  const ipcas= await fetchData()
+  const anos = Array.from(
+    new Set(
+      ipcas.map((ipca) => {
+        return ipca.D3C.substring(0, 4)
+      })
+    )
+  )
+  //const anos = ['2009','2021']
+  const paths = anos.map(ano=>{
+      return { params: { anoInicial: ano} }
+    })
+  return { paths, fallback: false }
 }
 
 export default Home
