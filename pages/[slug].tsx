@@ -1,11 +1,11 @@
-import type { NextPage } from 'next'
+import type { GetStaticPaths, GetStaticProps, NextPage } from 'next'
 import Head from 'next/head'
 import Image from 'next/image'
 import { useEffect, useState } from 'react'
 import styles from '../styles/Home.module.css'
 import { Welcome } from '../types/types'
 import MoneyInput from '@rschpdr/react-money-input'
-import axios from 'axios'
+//Jjsimport axios from 'axios'
 
 const MESES = [
   'Janeiro',
@@ -24,20 +24,19 @@ const MESES = [
 
 const fetchData = async () => {
   const response = await fetch(
-  'http://localhost:3000/api/ipca'
+    'http://localhost:3000/api/ipca'
     //'https://apisidra.ibge.gov.br/values/t/1737/n1/all/v/63/p/all/d/v63%202'
-  ) 
+  )
   //const ipcas = data as Welcome[]
   const ipcas = (await response.json()) as Welcome[]
   ipcas.shift()
   return ipcas
 }
 
-const Home: NextPage = (props:any) => {
-  const {anoInicial, ipcasPreload} = props
-  console.log('ipcasPreload',ipcasPreload)
+const Home: NextPage = (props: any) => {
+  const { valorInicial:valorInicialPath ,anoInicial, ipcasPreload } = props
   const [ipcas, setIpcas] = useState(ipcasPreload as Welcome[])
-  const [valorInicial, setValorInicial] = useState(1000)
+  const [valorInicial, setValorInicial] = useState(valorInicialPath)
   const [inicioMes, setInicioMes] = useState('01')
   const [inicioAno, setInicioAno] = useState(anoInicial)
   const [fimMes, setFimMes] = useState('03')
@@ -117,7 +116,6 @@ const Home: NextPage = (props:any) => {
                 {mesesOptions.slice(0, mesesInicioDisponiveis)}
               </select>
               de{' '}
-              
               <select
                 value={anoInicial}
                 onChange={(e) => setInicioAno(e.target.value.toString())}
@@ -157,7 +155,10 @@ const Home: NextPage = (props:any) => {
             <p> {(valorInicial * acumulado).toFixed(2)} </p>
           </div>
         </div>
-        <div>{10} reais em {inicioAno} equivalem a {(valorInicial * acumulado).toFixed(2)} reais Hoje</div>
+        <div>
+          {valorInicial} reais em {inicioAno} equivalem a{' '}
+          {(valorInicial * acumulado).toFixed(2)} reais Hoje
+        </div>
       </main>
 
       <footer className={styles.footer}>
@@ -175,25 +176,46 @@ const Home: NextPage = (props:any) => {
     </div>
   )
 }
-export const getStaticProps = async (context: any) => {
+export const getStaticProps: GetStaticProps = async (context) => {
   const ipcasPreload = await fetchData()
-  return { props: { anoInicial: context.params.anoInicial, ipcasPreload } }
+  console.log('context',context)
+  const slug = context?.params?.slug as string
+  const slugArr = slug?.split('-')
+  const valorInicial = slugArr[0]
+  const anoInicial = slugArr[slugArr.length-1]
+  return {
+    props: {
+      valorInicial,
+      anoInicial,
+      ipcasPreload,
+    },
+  }
 }
 
-export const getStaticPaths = async () => {
-  const ipcas= await fetchData()
+export const getStaticPaths: GetStaticPaths = async () => {
+  const ipcas = await fetchData()
   const anos = Array.from(
     new Set(
       ipcas.map((ipca) => {
         return ipca.D3C.substring(0, 4)
       })
     )
-  )
-  //const anos = ['2009','2021']
-  const paths = anos.map(ano=>{
-      return { params: { anoInicial: ano} }
-    })
-  return { paths, fallback: false }
+  ) as string[]
+  const valoresIniciais = ['100', '1000']
+
+  const paths = []
+
+  for (let i = 0; i < anos.length; i++) {
+    const ano = anos[i]
+    for (let j = 0; j < valoresIniciais.length; j++) {
+      const valor = valoresIniciais[j]
+
+      const slug = `${valor}-reais-em-${ano}`
+      paths.push({ params: { slug} })
+    }
+  }
+
+  return { paths, fallback: 'blocking' }
 }
 
 export default Home
