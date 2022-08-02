@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import styles from '../styles/Home.module.css'
 import { Welcome } from '../types/types'
 import MoneyInput from '@rschpdr/react-money-input'
+import {getIpcas} from './api/ipca'
 //Jjsimport axios from 'axios'
 
 const MESES = [
@@ -23,12 +24,13 @@ const MESES = [
 ]
 
 const fetchData = async () => {
-  const response = await fetch(
-    'http://localhost:3000/api/ipca'
-    //'https://apisidra.ibge.gov.br/values/t/1737/n1/all/v/63/p/all/d/v63%202'
-  )
-  //const ipcas = data as Welcome[]
-  const ipcas = (await response.json()) as Welcome[]
+  //const response = await fetch(
+  //  '/api/ipca'
+  //  //'https://apisidra.ibge.gov.br/values/t/1737/n1/all/v/63/p/all/d/v63%202'
+  //)
+  ////const ipcas = data as Welcome[]
+  //const ipcas = (await response.json()) as Welcome[]
+  const ipcas = JSON.parse(getIpcas()) as Welcome[]
   ipcas.shift()
   return ipcas
 }

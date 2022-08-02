@@ -1,4 +1,7 @@
 
+export function getIpcas(){
+  return JSON.stringify(ipcas)
+}
 
 export default async function handler(req:any, res:any) {
  // const response = await fetch(
